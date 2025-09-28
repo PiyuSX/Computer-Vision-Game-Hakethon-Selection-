@@ -12,31 +12,46 @@ class HandGestureDetector {
         this.handVisible = false;
         this.velocityBuffer = []; // Track velocity for better detection
         this.minVelocity = 0.015; // Minimum velocity for jump detection
+        this.initializationRetries = 0;
+        this.maxRetries = 3;
         
         this.initializeHands();
     }
 
     async initializeHands() {
         try {
+            // Check if MediaPipe is available
+            if (typeof Hands === 'undefined') {
+                throw new Error('MediaPipe Hands not loaded');
+            }
+
             this.hands = new Hands({
                 locateFile: (file) => {
-                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${file}`;
                 }
             });
 
             this.hands.setOptions({
                 maxNumHands: 1,
-                modelComplexity: 1,
-                minDetectionConfidence: 0.7,
-                minTrackingConfidence: 0.5
+                modelComplexity: 0, // Reduced for better performance
+                minDetectionConfidence: 0.6,
+                minTrackingConfidence: 0.4
             });
 
             this.hands.onResults(this.onResults.bind(this));
             this.isInitialized = true;
+            console.log('MediaPipe Hands initialized successfully');
             
         } catch (error) {
             console.error('Error initializing MediaPipe Hands:', error);
-            updateStatus('Error initializing hand detection', 'error');
+            this.initializationRetries++;
+            
+            if (this.initializationRetries < this.maxRetries) {
+                console.log(`Retrying initialization (${this.initializationRetries}/${this.maxRetries})...`);
+                setTimeout(() => this.initializeHands(), 2000);
+            } else {
+                updateStatus('Hand detection unavailable. Using keyboard controls only.', 'error');
+            }
         }
     }
 
@@ -44,10 +59,44 @@ class HandGestureDetector {
         try {
             const videoElement = document.getElementById('videoElement');
             
+            // Check for camera availability
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error('Camera not supported in this browser');
+            }
+
+            // Check if MediaPipe Camera is available
+            if (typeof Camera === 'undefined') {
+                // Fallback to direct getUserMedia
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 320, height: 240 }
+                });
+                
+                videoElement.srcObject = stream;
+                
+                // Manual frame processing
+                const processFrame = async () => {
+                    if (this.hands && this.isInitialized && videoElement.videoWidth > 0) {
+                        await this.hands.send({image: videoElement});
+                    }
+                    requestAnimationFrame(processFrame);
+                };
+                
+                videoElement.addEventListener('loadedmetadata', () => {
+                    processFrame();
+                });
+                
+                updateStatus('Camera started with fallback mode', 'ready');
+                return;
+            }
+            
             this.camera = new Camera(videoElement, {
                 onFrame: async () => {
                     if (this.hands && this.isInitialized) {
-                        await this.hands.send({image: videoElement});
+                        try {
+                            await this.hands.send({image: videoElement});
+                        } catch (error) {
+                            console.error('Frame processing error:', error);
+                        }
                     }
                 },
                 width: 320,
@@ -59,7 +108,19 @@ class HandGestureDetector {
             
         } catch (error) {
             console.error('Error starting camera:', error);
-            updateStatus('Camera access denied. Please allow camera permissions and refresh.', 'error');
+            
+            let errorMessage = 'Camera access failed. ';
+            if (error.name === 'NotAllowedError') {
+                errorMessage += 'Please allow camera permissions and refresh the page.';
+            } else if (error.name === 'NotFoundError') {
+                errorMessage += 'No camera found on this device.';
+            } else if (error.name === 'NotSupportedError') {
+                errorMessage += 'Camera not supported in this browser.';
+            } else {
+                errorMessage += 'Using keyboard controls only.';
+            }
+            
+            updateStatus(errorMessage, 'error');
         }
     }
 

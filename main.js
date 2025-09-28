@@ -121,8 +121,40 @@ let gameController = null;
 
 // Initialize everything when page loads
 document.addEventListener('DOMContentLoaded', async () => {
-    gameController = new GameController();
-    await gameController.initialize();
+    // Wait for MediaPipe libraries to load
+    const waitForMediaPipe = () => {
+        return new Promise((resolve) => {
+            const checkLibraries = () => {
+                if (typeof Hands !== 'undefined' && typeof Camera !== 'undefined') {
+                    resolve();
+                } else {
+                    setTimeout(checkLibraries, 100);
+                }
+            };
+            checkLibraries();
+        });
+    };
+    
+    try {
+        // Wait up to 10 seconds for libraries to load
+        await Promise.race([
+            waitForMediaPipe(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+        ]);
+        
+        gameController = new GameController();
+        await gameController.initialize();
+        
+    } catch (error) {
+        console.error('Initialization error:', error);
+        
+        // Initialize without camera if MediaPipe fails
+        gameController = new GameController();
+        gameController.game = initGame();
+        gameController.startGameLoop();
+        
+        updateStatus('Game loaded in keyboard-only mode. Press SPACEBAR to jump!', 'waiting');
+    }
 });
 
 // Global functions for HTML button handlers
