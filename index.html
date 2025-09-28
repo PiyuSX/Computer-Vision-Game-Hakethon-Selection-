@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dinosaur Game - Hand Gesture Control</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 16px;
+        }
+
+        .game-section {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .video-container {
+            position: relative;
+            border: 3px solid #4CAF50;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #videoElement {
+            width: 320px;
+            height: 240px;
+            object-fit: cover;
+            transform: scaleX(-1); /* Mirror the video */
+        }
+
+        .video-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+
+        .game-container {
+            border: 3px solid #333;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #gameCanvas {
+            display: block;
+            background: #f7f7f7;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .start-btn {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .start-btn:hover {
+            background: #45a049;
+        }
+
+        .reset-btn {
+            background: #f44336;
+            color: white;
+        }
+
+        .reset-btn:hover {
+            background: #da190b;
+        }
+
+        .info-btn {
+            background: #2196F3;
+            color: white;
+        }
+
+        .info-btn:hover {
+            background: #0b7dda;
+        }
+
+        .instructions {
+            background: #e8f5e8;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            border-left: 4px solid #4CAF50;
+        }
+
+        .instructions h3 {
+            margin-top: 0;
+            color: #2e7d32;
+        }
+
+        .instructions ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+
+        .instructions li {
+            margin: 5px 0;
+        }
+
+        .status {
+            text-align: center;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        .status.ready {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.waiting {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .performance-info {
+            display: flex;
+            justify-content: space-around;
+            margin: 15px 0;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .performance-item {
+            text-align: center;
+        }
+
+        .performance-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        @media (max-width: 768px) {
+            .game-section {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            #videoElement {
+                width: 280px;
+                height: 210px;
+            }
+
+            #gameCanvas {
+                width: 100%;
+                height: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🦕 Dinosaur Game</h1>
+        <p class="subtitle">Control the dinosaur with hand gestures!</p>
+
+        <div id="status" class="status waiting">
+            Initializing camera and hand detection...
+        </div>
+
+        <div class="game-section">
+            <div class="video-container">
+                <video id="videoElement" autoplay muted></video>
+                <div class="video-overlay">
+                    <div>Camera Feed</div>
+                    <div id="handStatus">No hands detected</div>
+                </div>
+            </div>
+
+            <div class="game-container">
+                <canvas id="gameCanvas" width="800" height="400"></canvas>
+            </div>
+        </div>
+
+        <div class="performance-info">
+            <div class="performance-item">
+                <div class="performance-value" id="scoreDisplay">0</div>
+                <div>Score</div>
+            </div>
+            <div class="performance-item">
+                <div class="performance-value" id="jumpCount">0</div>
+                <div>Jumps</div>
+            </div>
+            <div class="performance-item">
+                <div class="performance-value" id="fpsDisplay">60</div>
+                <div>FPS</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="start-btn" id="startBtn" onclick="startGame()">Start Game</button>
+            <button class="reset-btn" id="resetBtn" onclick="resetGame()">Reset Game</button>
+            <button class="info-btn" onclick="toggleInstructions()">Instructions</button>
+            <button class="info-btn" onclick="toggleCamera()">Toggle Camera</button>
+        </div>
+
+        <div class="instructions" id="instructions">
+            <h3>🎮 How to Play:</h3>
+            <ul>
+                <li><strong>Hand Gesture Control:</strong> Make a clear upward hand movement to jump</li>
+                <li><strong>Alternative Control:</strong> Press the SPACEBAR to jump</li>
+                <li><strong>Objective:</strong> Avoid hitting the cacti by jumping over them</li>
+                <li><strong>Scoring:</strong> You get 10 points for each cactus you successfully avoid</li>
+                <li><strong>Tips:</strong> 
+                    <ul>
+                        <li>Keep your hand visible in the camera feed</li>
+                        <li>Make deliberate upward movements - not too fast, not too slow</li>
+                        <li>The gesture detection is optimized for comfortable play</li>
+                        <li>Avoid small hand tremors by making clear, intentional movements</li>
+                        <li>The game gets faster as your score increases</li>
+                    </ul>
+                </li>
+            </ul>
+            <p><strong>Camera Permissions:</strong> This game requires access to your camera for hand gesture detection. Your video feed is processed locally and never sent to any server.</p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="game.js"></script>
+    <script src="hand-detection.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
